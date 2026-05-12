@@ -1,0 +1,18 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Backups
+*.bak
+*.backup
+
+# Node (in case anyone scaffolds tests here later)
+node_modules/
+npm-debug.log*
