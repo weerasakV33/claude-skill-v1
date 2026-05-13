@@ -76,6 +76,102 @@ claude mcp add stripe -- npx -y @stripe/mcp
 
 ---
 
+## 🔓 Permissions — ลด friction โดยไม่เสีย safety
+
+โดย default Claude Code ขอ **approve ทุก action** ที่อาจกระทบ filesystem หรือ network. สำหรับงาน senior SE ที่ทำ 30+ commits ต่อ session — การถาม approve ทุกครั้งทำลาย flow
+
+**แต่** `--dangerously-skip-permissions` flag = **ห้ามใช้** เพราะ Claude อาจรัน `rm -rf /` หรือ force push main โดยไม่ทันยับยั้ง
+
+**ทางที่ดีที่สุด:** ใช้ `settings.json` กำหนด allow/deny rules — Claude ทำงานต่อเนื่องในสิ่งที่ปลอดภัย หยุดถามแค่สิ่งที่อันตราย
+
+### Level 1: User-level (apply ทุก project)
+
+ไฟล์: `~/.claude/settings.json`
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Edit(**)",
+      "Write(**)",
+      "mcp__*"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(DROP DATABASE *)",
+      "Bash(DROP TABLE *)",
+      "Bash(gcloud * delete *)",
+      "Bash(supabase db reset*)",
+      "Bash(docker system prune *)"
+    ]
+  }
+}
+```
+
+**Allow** ทุก bash command + file edit/write + MCP tools
+**Deny** เฉพาะ destructive — rm -rf, force push, drop database, delete cloud resources, docker prune
+
+### Level 2: Project-level (ขยายเพิ่มของ project)
+
+ไฟล์: `<project-root>/.claude/settings.local.json`
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx *)",
+      "Bash(firebase deploy *)",
+      "Bash(gcloud builds submit *)",
+      "WebFetch(domain:docs.stripe.com)",
+      "WebFetch(domain:cloud.google.com)"
+    ]
+  }
+}
+```
+
+Extra allow rules ที่ specific กับ stack ของ project นั้นๆ
+
+### ทำไมไม่ใช้ `--dangerously-skip-permissions`
+
+| | Pros | Cons |
+|---|---|---|
+| Default (ถามทุกครั้ง) | ปลอดภัย 100% | ทำงานช้า, ขัด flow |
+| `--dangerously-skip-permissions` | เร็วสุด | ❌ ไม่มี safety net |
+| **settings.json (allow + deny)** | ✅ เร็ว + ปลอดภัย | ต้อง maintain rules |
+
+settings.json คือ middle ground — Claude ทำงาน autonomous ในสิ่งที่ปลอดภัย หยุดถามเฉพาะของอันตรายจริง
+
+---
+
+## 📍 เปิด session จาก project folder เสมอ
+
+Claude Code เก็บ memory ของแต่ละ project ไว้ที่ `~/.claude/projects/<encoded-path>/memory/` โดย `<encoded-path>` คือ path ของ folder ที่เปิด session แปลง `\` → `-` และ `:` → `--`
+
+```
+C:\back-office\back-office-iq  →  C--back-office-back-office-iq
+C:\power-web                    →  c--power-web
+```
+
+**Best practice:** เปิด session จาก project folder เสมอ — memory จะ save ถูกที่
+
+```powershell
+# ✅ ถูก
+cd C:\path\to\project
+claude
+
+# ❌ ผิด — memory ของ project นี้จะไปอยู่ที่ C--Users-User/
+cd C:\Users\User
+claude
+```
+
+ถ้า memory เคยค้างที่ผิด (เช่น `C--Users-User/memory/<project>/`) — ย้ายได้ด้วย Claude เองโดย copy ไฟล์ไป encoded path ที่ถูก แล้วทดสอบก่อนลบของเก่า
+
+---
+
 ## 📦 What you get
 
 ### Identity (always loaded — `CLAUDE.md`)
@@ -127,6 +223,7 @@ Claude คือ **senior software engineer** ที่:
 ```
 ~/.claude/
 ├── CLAUDE.md                            ← identity (always loaded)
+├── settings.json                        ← user-level permissions
 ├── skills/
 │   ├── setup-environment/SKILL.md
 │   ├── greenfield-project/SKILL.md
@@ -136,6 +233,10 @@ Claude คือ **senior software engineer** ที่:
 │   ├── reference-driven/SKILL.md
 │   └── build-complete-system/SKILL.md
 └── projects/                            ← per-project memory (UNTOUCHED)
+
+<your-project>/
+└── .claude/
+    └── settings.local.json              ← project-level permissions
 ```
 
 Installer **backup** ของเก่าที่ `~/.claude/.backups/<timestamp>/` และ **ไม่แตะ** `projects/`
@@ -146,7 +247,7 @@ Installer **backup** ของเก่าที่ `~/.claude/.backups/<timesta
 
 หลัง install:
 1. ปิด terminal เก่าทั้งหมด
-2. เปิด terminal ใหม่
+2. เปิด terminal ใหม่ + `cd` เข้า project folder
 3. รัน `claude`
 4. ถาม Claude:
 
@@ -183,7 +284,7 @@ git pull
 
 Repo นี้ install **global** identity + skills (universal engineering character)
 
-Per-project context (stack เฉพาะ, conventions, business rules) อยู่ที่ `~/.claude/projects/<your-project>/memory/` — แยกของแต่ละ project (Claude Code จัดการอัตโนมัติ)
+Per-project context (stack เฉพาะ, conventions, business rules) อยู่ที่ `~/.claude/projects/<encoded-path>/memory/` — แยกของแต่ละ project (Claude Code จัดการอัตโนมัติ)
 
 ทั้ง 2 layer ทำงานคู่กัน:
 - **Global** (จาก repo นี้): "ผมเป็นวิศวกรประเภทไหน ทำงานยังไง"
