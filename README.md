@@ -92,20 +92,34 @@ claude mcp add stripe -- npx -y @stripe/mcp
 {
   "permissions": {
     "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "WebSearch",
+      "WebFetch",
+      "Edit",
+      "Write",
       "Bash(*)",
-      "Edit(**)",
-      "Write(**)",
-      "mcp__*"
+      "mcp__github__*",
+      "mcp__chrome-devtools__*",
+      "mcp__context7__*",
+      "mcp__gcp-observability__*",
+      "mcp__playwright__*"
     ],
     "deny": [
-      "Bash(rm -rf *)",
-      "Bash(git push --force *)",
-      "Bash(git push -f *)",
-      "Bash(DROP DATABASE *)",
-      "Bash(DROP TABLE *)",
-      "Bash(gcloud * delete *)",
-      "Bash(supabase db reset*)",
-      "Bash(docker system prune *)"
+      "Bash(rm -rf*)",
+      "Bash(rm -r *)",
+      "Bash(Remove-Item*-Recurse*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(gcloud sql*delete*)",
+      "Bash(gcloud sql*drop*)",
+      "Bash(gcloud run services delete*)",
+      "Bash(*psql*DROP*)",
+      "Bash(*psql*TRUNCATE*)",
+      "Bash(*psql*DELETE FROM*)",
+      "Bash(*--force*)"
     ]
   }
 }
